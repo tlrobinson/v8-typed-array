@@ -44,12 +44,38 @@ Handle<Value> ArrayBuffer(const Arguments& args) {
     return args.This();
 }
 
+Handle<Value> ArrayBufferViewSet(const Arguments& args) {
+    Local<Object> arrayBuffer = args.This()->GetHiddenValue(String::New("_buffer"))->ToObject();
+
+    if (args.Length() >= 1 && args[0]->IsArray()) {
+	Local<Array> source = Local<Array>::Cast(args[0]);
+	int offset = 0;
+
+        if(args.Length() >= 2 && args[1]->IsUint32()) {
+            offset = args[1]->Uint32Value();
+        }
+
+	int dataLength = args.This()->GetIndexedPropertiesExternalArrayDataLength();
+	if (offset + source->Length() > dataLength) {
+            return ThrowException(String::New("INDEX_SIZE_ERR: array too large"));
+	}
+
+	for (int index = 0; index < source->Length(); index++) {
+            args.This()->Set(offset + index, source->Get(index));
+	}
+    } else {
+        return ThrowException(String::New("Invalid ArrayBufferView::set arguments."));
+    }
+
+    return Undefined();
+}
+
 Handle<Value> CreateArrayBufferView(const Arguments& args, ExternalArrayType type, int element_size) {
     Local<Object> arrayBuffer;
     unsigned long elements = 0;
     unsigned long byteOffset = 0;
 
-    if (args.Length() == 1) {
+    if (args.Length() == 1 && args[0]->IsUint32()) {
         elements = args[0]->Uint32Value();
         Local<Value> arg = Int32::New(elements * element_size);
         arrayBuffer = array_buffer_constructor_template->GetFunction()->NewInstance(1, &arg);
@@ -86,6 +112,8 @@ Handle<Value> CreateArrayBufferView(const Arguments& args, ExternalArrayType typ
     args.This()->SetHiddenValue(String::New("_buffer"), arrayBuffer);
     args.This()->SetIndexedPropertiesToExternalArrayData(((int8_t*)arrayBufferData) + byteOffset, type, elements);
     args.This()->Set(String::New("length"), Int32::New(elements), ReadOnly);
+
+    args.This()->Set(String::New("set"), FunctionTemplate::New(ArrayBufferViewSet)->GetFunction());
 
     return args.This();
 }
