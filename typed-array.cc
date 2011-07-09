@@ -26,7 +26,6 @@ Persistent<FunctionTemplate> array_buffer_constructor_template;
 
 Handle<Value> ArrayBuffer(const Arguments& args) {
     if (args.Length() != 1 || !args[0]->IsNumber()) {
-        printf("x=%d y=%d\n", args.Length(), args[0]->IsNumber());
         return ThrowException(String::New("Invalid ArrayBuffer arguments."));
     }
 
@@ -45,29 +44,33 @@ Handle<Value> ArrayBuffer(const Arguments& args) {
 }
 
 Handle<Value> ArrayBufferViewSet(const Arguments& args) {
-    Local<Object> arrayBuffer = args.This()->GetHiddenValue(String::New("_buffer"))->ToObject();
+    Local<Object> arrayBuffer = args.This()->Get(String::New("buffer"))->ToObject();
 
     if (args.Length() >= 1 && args[0]->IsArray()) {
-	Local<Array> source = Local<Array>::Cast(args[0]);
-	int offset = 0;
+        Local<Array> source = Local<Array>::Cast(args[0]);
+        int offset = 0;
 
-        if(args.Length() >= 2 && args[1]->IsUint32()) {
+        if (args.Length() >= 2 && args[1]->IsUint32()) {
             offset = args[1]->Uint32Value();
         }
 
-	int dataLength = args.This()->GetIndexedPropertiesExternalArrayDataLength();
-	if (offset + source->Length() > dataLength) {
+        int dataLength = args.This()->GetIndexedPropertiesExternalArrayDataLength();
+        if (offset + source->Length() > dataLength) {
             return ThrowException(String::New("INDEX_SIZE_ERR: array too large"));
-	}
+        }
 
-	for (int index = 0; index < source->Length(); index++) {
+        for (int index = 0; index < source->Length(); index++) {
             args.This()->Set(offset + index, source->Get(index));
-	}
+        }
     } else {
         return ThrowException(String::New("Invalid ArrayBufferView::set arguments."));
     }
 
     return Undefined();
+}
+
+Handle<Value> ArrayBufferViewSubarray(const Arguments& args) {
+    return ThrowException(String::New("ArrayBufferView::subarray not yet implemented."));
 }
 
 Handle<Value> CreateArrayBufferView(const Arguments& args, ExternalArrayType type, int element_size) {
@@ -76,10 +79,14 @@ Handle<Value> CreateArrayBufferView(const Arguments& args, ExternalArrayType typ
     unsigned long byteOffset = 0;
 
     if (args.Length() == 1 && args[0]->IsUint32()) {
+        // TypedArray(unsigned long length)
         elements = args[0]->Uint32Value();
         Local<Value> arg = Int32::New(elements * element_size);
         arrayBuffer = array_buffer_constructor_template->GetFunction()->NewInstance(1, &arg);
     } else if (args.Length() >= 1 && args[0]->IsObject()) {
+        // TypedArray(ArrayBuffer buffer, optional unsigned long byteOffset, optional unsigned long length)
+        // TODO: TypedArray(TypedArray array)
+        // TODO: TypedArray(type[] array)
         arrayBuffer = args[0]->ToObject();
         if (args.Length() > 1) {
             byteOffset = args[1]->Uint32Value();
@@ -93,10 +100,10 @@ Handle<Value> CreateArrayBufferView(const Arguments& args, ExternalArrayType typ
     } else {
         return ThrowException(String::New("Invalid ArrayBufferView arguments."));
     }
-    
+
     void* arrayBufferData = arrayBuffer->GetPointerFromInternalField(0);
     unsigned long arrayBufferLength = (unsigned long)arrayBuffer->GetPointerFromInternalField(1);
-    
+
     // FIXME: is 0 a legitimate length?
     if (elements == 0) {
         if ((arrayBufferLength - byteOffset) % element_size != 0) {
@@ -104,16 +111,25 @@ Handle<Value> CreateArrayBufferView(const Arguments& args, ExternalArrayType typ
         }
         elements = (arrayBufferLength - byteOffset) / element_size;
     }
-    
+
     if (byteOffset + elements * element_size > arrayBufferLength) {
         return ThrowException(String::New("Given byteOffset and length references an area beyond the end of the ArrayBuffer."));
     }
 
-    args.This()->SetHiddenValue(String::New("_buffer"), arrayBuffer);
     args.This()->SetIndexedPropertiesToExternalArrayData(((int8_t*)arrayBufferData) + byteOffset, type, elements);
+
+    // ArrayBufferView properties
+    args.This()->Set(String::New("buffer"), arrayBuffer, ReadOnly);
+    args.This()->Set(String::New("byteLength"), Int32::New(elements * element_size), ReadOnly);
+    args.This()->Set(String::New("byteOffset"), Int32::New(byteOffset), ReadOnly);
+
+    // TypedArray properties
+    args.This()->Set(String::New("BYTES_PER_ELEMENT"), Int32::New(element_size), ReadOnly);
     args.This()->Set(String::New("length"), Int32::New(elements), ReadOnly);
 
+    // TypedArray methods (TODO: move to prototype)
     args.This()->Set(String::New("set"), FunctionTemplate::New(ArrayBufferViewSet)->GetFunction());
+    args.This()->Set(String::New("subarray"), FunctionTemplate::New(ArrayBufferViewSubarray)->GetFunction());
 
     return args.This();
 }
@@ -138,7 +154,7 @@ init (Handle<Object> target) {
         Local<Function> f = array_buffer_constructor_template->GetFunction();
         target->Set(String::New("ArrayBuffer"), f);
     }
-    
+
     INIT_ARRAY_BUFFER_VIEW(Int8Array, kExternalByteArray, sizeof(int8_t));
     INIT_ARRAY_BUFFER_VIEW(Uint8Array, kExternalUnsignedByteArray, sizeof(uint8_t));
     INIT_ARRAY_BUFFER_VIEW(Int16Array, kExternalShortArray, sizeof(int16_t));
