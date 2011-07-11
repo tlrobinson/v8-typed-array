@@ -1,0 +1,4 @@
+build/
+tmp/
+.lock*
+.DS_Store
