@@ -17,4 +17,4 @@ def configure(conf):
 def build(bld):
   obj = bld.new_task_gen('cxx', 'shlib', 'node_addon')
   obj.target = 'typed-array'
-  obj.source = 'src/typed-array.cc'
+  obj.source = 'typed-array.cc'

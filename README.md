@@ -16,31 +16,10 @@ Based Editor's Draft 28 April 2011: http://www.khronos.org/registry/typedarray/s
 
 Build
 -----
-CoffeeScript is only needed when running Cake test and benchmark scripts.
 
     node-waf configure build
 
-    OR
-
-    cake build
-
-    OR
-    
-    npm install typed-array
-
-Tests
------
-Prior to running any tests you must first do a `build`. See section "Build".
-You will also need CoffeeScript.
-
-    cake test
-
-Benchmarks
-----------
-Prior to running any benchmarks you must first do a `build`. See section "Build".
-You will also need CoffeeScript.
-
-    cake benchmark
+Or install using NPM (npm install typed-array)
 
 Credits
 -------
@@ -55,7 +34,6 @@ TODO
 
 * Implement the rest of the API
 * Bridge to Node's Buffers?
-* Tests
 
 License
 -------
